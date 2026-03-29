@@ -45,7 +45,7 @@ jobs:
           echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
           export THEOS=${{ github.workspace }}/theos
           ln -s $THEOS/include/YouTubeHeader ../YouTubeHeader
-          git clone --quiet --depth=1 https://github.com/protocolbuffers/protobuf.git ../protobuf
+          git clone --quiet --depth=1 -b v3.20.3 https://github.com/protocolbuffers/protobuf.git ../protobuf
           make clean
           make package SIDELOADED=1
 
