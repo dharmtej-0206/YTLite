@@ -163,8 +163,6 @@ static NSString *GetCacheSize() {
     }];
 
     [sectionItems addObject:general];
-
-    YTSettingsSectionItem *navbar = [YTSettingsSectionItemClass itemWithTitle:LOC(@"Navbar")
 // --- FOCUS MODE MENU START ---
     YTSettingsSectionItem *focus = [YTSettingsSectionItemClass itemWithTitle:@"Focus Mode"
         accessibilityIdentifier:@"YTLiteSectionItem"
@@ -194,11 +192,11 @@ static NSString *GetCacheSize() {
                     YTAlertView *alertView = [%c(YTAlertView) confirmationDialogWithAction:^{
                         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
                         [defaults setObject:[NSDate date] forKey:@"ytl_lock_timestamp"];
-                        [defaults setObject:@(3600) forKey:@"ytl_lock_duration_seconds"]; // 3600s = 1 hr
+                        [defaults setObject:@(3600) forKey:@"ytl_lock_duration_seconds"]; 
                         [defaults synchronize];
                         [[UIApplication sharedApplication] performSelector:@selector(suspend)];
                         [NSThread sleepForTimeInterval:1.0];
-                        exit(0); // Force close app to apply lock immediately
+                        exit(0); 
                     }
                     actionTitle:@"Lock Now"
                     cancelTitle:@"Cancel"];
@@ -213,7 +211,7 @@ static NSString *GetCacheSize() {
                     YTAlertView *alertView = [%c(YTAlertView) confirmationDialogWithAction:^{
                         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
                         [defaults setObject:[NSDate date] forKey:@"ytl_lock_timestamp"];
-                        [defaults setObject:@(7200) forKey:@"ytl_lock_duration_seconds"]; // 7200s = 2 hrs
+                        [defaults setObject:@(7200) forKey:@"ytl_lock_duration_seconds"]; 
                         [defaults synchronize];
                         [[UIApplication sharedApplication] performSelector:@selector(suspend)];
                         [NSThread sleepForTimeInterval:1.0];
@@ -235,6 +233,8 @@ static NSString *GetCacheSize() {
 
     [sectionItems addObject:focus];
     // --- FOCUS MODE MENU END ---
+
+    YTSettingsSectionItem *navbar = [YTSettingsSectionItemClass itemWithTitle:LOC(@"Navbar")
     accessibilityIdentifier:@"YTLiteSectionItem"
     detailTextBlock:^NSString *() {
         return @"‣";
