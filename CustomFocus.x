@@ -1,6 +1,14 @@
 #import "YTLite.h"
 #import <UIKit/UIKit.h>
 
+// --- TELL THE COMPILER WHAT THESE CLASSES ARE ---
+@interface YTAppViewController : UIViewController
+@end
+
+@interface YTCompactVideoCell : UIView
+@end
+// ------------------------------------------------
+
 static NSMutableArray *blockedItems = nil;
 
 // --- 1. READ & DECODE THE .YTB FILE ---
