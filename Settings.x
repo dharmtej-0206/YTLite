@@ -5,6 +5,35 @@
 @end
 
 static const NSInteger YTLiteSection = 789;
+// --- FOCUS LOCK LOGIC ---
+static BOOL isSettingsLocked() {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSDate *lockDate = [defaults objectForKey:@"ytl_lock_timestamp"];
+    NSNumber *durationNum = [defaults objectForKey:@"ytl_lock_duration_seconds"]; 
+    
+    if (lockDate && durationNum && [durationNum doubleValue] > 0) {
+        NSTimeInterval timePassed = [[NSDate date] timeIntervalSinceDate:lockDate];
+        if (timePassed < [durationNum doubleValue]) {
+            return YES; // Still locked!
+        } else {
+            // Timer expired, clear the lock
+            [defaults removeObjectForKey:@"ytl_lock_timestamp"];
+            [defaults removeObjectForKey:@"ytl_lock_duration_seconds"];
+            [defaults synchronize];
+            return NO;
+        }
+    }
+    return NO;
+}
+
+static int remainingLockMinutes() {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSDate *lockDate = [defaults objectForKey:@"ytl_lock_timestamp"];
+    NSNumber *durationNum = [defaults objectForKey:@"ytl_lock_duration_seconds"];
+    NSTimeInterval timePassed = [[NSDate date] timeIntervalSinceDate:lockDate];
+    return (int)(([durationNum doubleValue] - timePassed) / 60);
+}
+// ------------------------
 
 static NSString *GetCacheSize() {
     NSString *cachePath = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
