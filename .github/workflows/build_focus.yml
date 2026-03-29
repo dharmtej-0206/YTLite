@@ -38,6 +38,7 @@ jobs:
           cd $THEOS/include
           git clone --quiet --depth=1 https://github.com/PoomSmart/YouTubeHeader.git
           git clone --quiet --depth=1 https://github.com/PoomSmart/PSHeader.git
+          curl -sLO https://raw.githubusercontent.com/roothide/libroothide/main/roothide.h
 
       - name: Compile Custom Tweak
         run: |
