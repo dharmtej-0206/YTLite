@@ -1,13 +1,11 @@
 #import "YTLite.h"
 #import <UIKit/UIKit.h>
 
-// --- TELL THE COMPILER WHAT THESE CLASSES ARE ---
-@interface YTAppViewController : UIViewController
-@end
-
+// --- TELL THE COMPILER WHAT THIS CLASS IS ---
+// (YTAppViewController is already defined in YTLite.h, so we only need this one)
 @interface YTCompactVideoCell : UIView
 @end
-// ------------------------------------------------
+// --------------------------------------------
 
 static NSMutableArray *blockedItems = nil;
 
