@@ -165,6 +165,76 @@ static NSString *GetCacheSize() {
     [sectionItems addObject:general];
 
     YTSettingsSectionItem *navbar = [YTSettingsSectionItemClass itemWithTitle:LOC(@"Navbar")
+// --- FOCUS MODE MENU START ---
+    YTSettingsSectionItem *focus = [YTSettingsSectionItemClass itemWithTitle:@"Focus Mode"
+        accessibilityIdentifier:@"YTLiteSectionItem"
+        detailTextBlock:^NSString *() {
+            return isSettingsLocked() ? @"🔒 Locked" : @"‣";
+        }
+        selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+            
+            // 1. Kick them out if it's currently locked
+            if (isSettingsLocked()) {
+                int minsLeft = remainingLockMinutes();
+                NSString *msg = [NSString stringWithFormat:@"Settings are locked to prevent tampering.\n\nTime remaining: %d minutes.", minsLeft];
+                YTAlertView *alertView = [%c(YTAlertView) infoDialog];
+                alertView.title = @"Access Denied";
+                alertView.subtitle = msg;
+                [alertView show];
+                return NO;
+            }
+
+            // 2. Build the lock options if it's NOT locked
+            NSArray <YTSettingsSectionItem *> *rows = @[
+                [self switchWithTitle:@"Enable Custom Blocks (.ytb)" key:@"enableCustomFocusBlocker"],
+                [self switchWithTitle:@"Enable 10-Second Delay" key:@"enableAppDelay"],
+                
+                // 1 Hour Lock Option
+                [%c(YTSettingsSectionItem) itemWithTitle:@"Lock Settings (1 Hour)" titleDescription:@"Prevents disabling Focus Mode" accessibilityIdentifier:@"YTLiteSectionItem" detailTextBlock:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+                    YTAlertView *alertView = [%c(YTAlertView) confirmationDialogWithAction:^{
+                        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+                        [defaults setObject:[NSDate date] forKey:@"ytl_lock_timestamp"];
+                        [defaults setObject:@(3600) forKey:@"ytl_lock_duration_seconds"]; // 3600s = 1 hr
+                        [defaults synchronize];
+                        [[UIApplication sharedApplication] performSelector:@selector(suspend)];
+                        [NSThread sleepForTimeInterval:1.0];
+                        exit(0); // Force close app to apply lock immediately
+                    }
+                    actionTitle:@"Lock Now"
+                    cancelTitle:@"Cancel"];
+                    alertView.title = @"Are you sure?";
+                    alertView.subtitle = @"You will not be able to change any YTLite settings for 1 hour.";
+                    [alertView show];
+                    return YES;
+                }],
+
+                // 2 Hour Lock Option
+                [%c(YTSettingsSectionItem) itemWithTitle:@"Lock Settings (2 Hours)" titleDescription:nil accessibilityIdentifier:@"YTLiteSectionItem" detailTextBlock:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+                    YTAlertView *alertView = [%c(YTAlertView) confirmationDialogWithAction:^{
+                        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+                        [defaults setObject:[NSDate date] forKey:@"ytl_lock_timestamp"];
+                        [defaults setObject:@(7200) forKey:@"ytl_lock_duration_seconds"]; // 7200s = 2 hrs
+                        [defaults synchronize];
+                        [[UIApplication sharedApplication] performSelector:@selector(suspend)];
+                        [NSThread sleepForTimeInterval:1.0];
+                        exit(0);
+                    }
+                    actionTitle:@"Lock Now"
+                    cancelTitle:@"Cancel"];
+                    alertView.title = @"Are you sure?";
+                    alertView.subtitle = @"You will not be able to change any YTLite settings for 2 hours.";
+                    [alertView show];
+                    return YES;
+                }]
+            ];
+
+            YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc] initWithNavTitle:@"Focus Mode" pickerSectionTitle:nil rows:rows selectedItemIndex:NSNotFound parentResponder:[self parentResponder]];
+            [settingsViewController pushViewController:picker];
+            return YES;
+        }];
+
+    [sectionItems addObject:focus];
+    // --- FOCUS MODE MENU END ---
     accessibilityIdentifier:@"YTLiteSectionItem"
     detailTextBlock:^NSString *() {
         return @"‣";
