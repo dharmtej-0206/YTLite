@@ -44,6 +44,7 @@ jobs:
         run: |
           echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
           export THEOS=${{ github.workspace }}/theos
+          ln -s $THEOS/include/YouTubeHeader ../YouTubeHeader
           make clean
           make package SIDELOADED=1
 
