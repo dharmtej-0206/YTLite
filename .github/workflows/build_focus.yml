@@ -3,8 +3,11 @@ on:
   workflow_dispatch:
     inputs:
       ipa_url:
-        description: 'Direct download link to decrypted YouTube IPA'
+        description: 'Direct link to decrypted YouTube IPA (Use your GitHub Release link!)'
         required: true
+      ytlite_version:
+        description: 'YTLite Version to inject'
+        default: '5.2b4'
 
 jobs:
   build:
@@ -32,37 +35,38 @@ jobs:
           git checkout
           mv *.sdk ${{ github.workspace }}/theos/sdks
 
-      - name: Clone Required Headers
-        run: |
-          export THEOS=${{ github.workspace }}/theos
-          cd $THEOS/include
-          git clone --quiet --depth=1 https://github.com/PoomSmart/YouTubeHeader.git
-          git clone --quiet --depth=1 https://github.com/PoomSmart/PSHeader.git
-          curl -sLO https://raw.githubusercontent.com/roothide/libroothide/main/roothide.h
-
-      - name: Compile Custom Tweak
+      - name: Compile Focus Tweak
         run: |
           echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
           export THEOS=${{ github.workspace }}/theos
-          ln -s $THEOS/include/YouTubeHeader ../YouTubeHeader
-          git clone --quiet --depth=1 -b v3.20.3 https://github.com/protocolbuffers/protobuf.git ../protobuf
           make clean
           make package SIDELOADED=1
 
-      - name: Extract Compiled Files
+      - name: Prepare Injection Folder
         run: |
-          mkdir -p extract
-          dpkg-deb -x packages/*.deb extract/
-          cp -r extract/Library/MobileSubstrate/DynamicLibraries/YTLite.dylib .
-          cp -r "extract/Library/Application Support/YTLite.bundle" .
+          mkdir -p inject
+          dpkg-deb -x packages/*.deb inject/
+          cp inject/Library/MobileSubstrate/DynamicLibraries/Focus.dylib .
 
-      - name: Download Clean YouTube IPA
+      - name: Download Official YTLite
+        run: |
+          wget "https://github.com/dayanch96/YTLite/releases/download/v${{ github.event.inputs.ytlite_version }}/com.dvntm.ytlite_${{ github.event.inputs.ytlite_version }}_iphoneos-arm.deb" -O ytlite.deb
+          mkdir -p ytlite_extract
+          dpkg-deb -x ytlite.deb ytlite_extract/
+          cp ytlite_extract/Library/MobileSubstrate/DynamicLibraries/YTLite.dylib .
+          cp -r "ytlite_extract/Library/Application Support/YTLite.bundle" .
+
+      - name: Insert Blocklist
+        run: |
+          cp blocklist.ytb YTLite.bundle/ || echo "Warning: blocklist.ytb not found in repo root!"
+
+      - name: Download YouTube IPA
         run: wget "${{ github.event.inputs.ipa_url }}" --no-verbose -O YouTube.ipa
 
       - name: Inject using Cyan
         run: |
           pipx install --force https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip
-          ~/.local/bin/cyan -i YouTube.ipa -f YTLite.dylib YTLite.bundle -o YouTube_Focus.ipa
+          ~/.local/bin/cyan -i YouTube.ipa -f Focus.dylib YTLite.dylib YTLite.bundle -o YouTube_Focus.ipa
 
       - name: Upload Final IPA
         uses: actions/upload-artifact@v4
