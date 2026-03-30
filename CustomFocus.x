@@ -7,112 +7,121 @@
 @interface YTSearchVideoCell : UICollectionViewCell
 @end
 
-// --- 1. HARDCODED BLOCKLIST (THE FIRMWARE) ---
+// --- 1. HARDCODED BLOCKLIST ---
 static NSArray *getBlockedKeywords() {
     return @[
-        // Keywords & Titles
+        // Keywords
         @"phonk", @"funk", @"slowed", @"music", @"sempero", @"teconci",
         
-        // Blocked Channels (All lowercase for the accessibility scanner)
+        // Channels (Cleaned up from your JSON)
         @"mrbeast", @"career247", @"studyiq ias", @"neon man", @"purav jha", 
         @"neon man sports", @"lakshay chaudhary", @"abhi and niyu", @"t-series", 
         @"neuzboy", @"ashish chanchlani vines", @"tanmay bhat", @"hindi rush", 
         @"india's got latent clips", @"samay raina", @"carryminati", @"ishowspeed", 
         @"varun mayya", @"aevy tv", @"finance with sharan", @"breakdown", 
-        @"ryan george extra plus!", @"ryan george", @"mohak mangal", @"cinedesi", 
-        @"rapid info", @"techlinked", @"linus tech tips", @"shortcircuit", @"memapur", 
-        @"memapur 2.0", @"sourav joshi vlogs", @"risen ai", @"mr. indian hacker", 
-        @"thugesh", @"thugesh unfiltered", @"open letter", @"dhruv rathee", 
-        @"𝗀𝖾𝗍 𝗌𝖾𝗍 𝖿𝗅𝗒 𝗌𝖼𝗂𝖾𝗇𝖼𝖾", @"techwiser", @"sillycorns", @"think school", 
-        @"mr techpedia", @"nitish rajput", @"gyan therapy", @"aye jude", 
-        @"prasadtechintelugu", @"beebom", @"trakin tech", @"the deshbhakt", 
-        @"mrwhosetheboss", @"hamza", @"thegoodvibe", @"andromeda - topic", @"mxzi", 
-        @"zombr3x", @"sma$hеr", @"flame runner - topic", @"zombr3x - topic", 
-        @"jmilton - topic", @"repsaj - topic", @"mgd - topic", @"khaos - topic", 
-        @"sma$her - topic", @"mxzi - topic", @"cape - topic", @"torbahed - topic", 
-        @"ogryzek - topic", @"trxshbxy - topic", @"ncts - topic", @"fennecxx - topic", 
-        @"sayfalse - topic", @"h6itam - topic", @"eternxlkz", @"dj fku - topic", 
-        @"dj asul - topic", @"kendrick lamar", @"sabrina carpenter", @"camila cabello", 
-        @"shawn mendes", @"one direction", @"wham!", @"sia", @"stephen sanchez", 
-        @"publictheband", @"powfu", @"passenger", @"charlie puth", @"onedirectionvevo", 
-        @"wiz khalifa music", @"publicvevo", @"alan walker", @"stephensanchezvevo", 
-        @"onerepublicvevo", @"green planet lyrics", @"coldplay", @"netflix india", 
-        @"dog story", @"zaynvevo", @"neon lyrics", @"glassanimalsvevo", 
-        @"aviciiofficialvevo", @"billieeilishvevo", @"thescriptvevo", @"selina lyrics", 
-        @"lanadelreyvevo", @"khalidvevo", @"justinbiebervevo", @"bluenight audio", 
-        @"pop mage", @"ragnbonemanvevo", @"jonas blue", @"5sos", @"panic! at the disco", 
-        @"the score", @"republic records", @"riot games music", @"2wei", @"suka.", 
-        @"phant x", @"alpha phonk", @"unstoppable music", @"𝔭𝔥𝔬𝔫𝔨", @"mafia", 
-        @"mtheo 785 (1)", @"youssey music", @"mrl", @"ashreveal", @"ro ransom - topic", 
-        @"trillyrap", @"7clouds", @"urban paradise", @"pizza music", @"vibe music", 
-        @"syrebralvibes", @"dan music", @"solitude songs", @"mikomikei", 
-        @"alone candy music", @"7clouds rock", @"latinhype", @"arcade music", 
-        @"billion stars", @"tried&refused productions.", @"lynling lyrics", 
-        @"pop artist", @"lost panda", @"ignite", @"unique sound", @"music and song 3", 
-        @"7clouds chill", @"cakes & eclairs", @"escape lyrics", @"musical muse", 
+        @"ryan george", @"mohak mangal", @"cinedesi", @"rapid info", @"techlinked", 
+        @"linus tech tips", @"shortcircuit", @"memapur", @"sourav joshi vlogs", 
+        @"risen ai", @"mr. indian hacker", @"thugesh", @"open letter", @"dhruv rathee", 
+        @"techwiser", @"sillycorns", @"think school", @"mr techpedia", @"nitish rajput", 
+        @"gyan therapy", @"aye jude", @"prasadtechintelugu", @"beebom", @"trakin tech", 
+        @"the deshbhakt", @"mrwhosetheboss", @"hamza", @"thegoodvibe", @"andromeda", 
+        @"mxzi", @"zombr3x", @"sma$her", @"flame runner", @"jmilton", @"repsaj", 
+        @"mgd", @"khaos", @"cape", @"torbahed", @"ogryzek", @"trxshbxy", @"ncts", 
+        @"fennecxx", @"sayfalse", @"h6itam", @"eternxlkz", @"dj fku", @"dj asul", 
+        @"kendrick lamar", @"sabrina carpenter", @"camila cabello", @"shawn mendes", 
+        @"one direction", @"wham!", @"sia", @"stephen sanchez", @"publictheband", 
+        @"powfu", @"passenger", @"charlie puth", @"onedirectionvevo", @"wiz khalifa", 
+        @"publicvevo", @"alan walker", @"stephensanchezvevo", @"onerepublicvevo", 
+        @"green planet lyrics", @"coldplay", @"netflix india", @"dog story", @"zaynvevo", 
+        @"neon lyrics", @"glassanimalsvevo", @"aviciiofficialvevo", @"billieeilishvevo", 
+        @"thescriptvevo", @"selina lyrics", @"lanadelreyvevo", @"khalidvevo", 
+        @"justinbiebervevo", @"bluenight audio", @"pop mage", @"ragnbonemanvevo", 
+        @"jonas blue", @"5sos", @"panic! at the disco", @"the score", @"republic records", 
+        @"riot games music", @"2wei", @"suka.", @"phant x", @"alpha phonk", 
+        @"unstoppable music", @"mafia", @"mtheo", @"youssey music", @"mrl", @"ashreveal", 
+        @"ro ransom", @"trillyrap", @"7clouds", @"urban paradise", @"pizza music", 
+        @"vibe music", @"syrebralvibes", @"dan music", @"solitude songs", @"mikomikei", 
+        @"alone candy music", @"latinhype", @"arcade music", @"billion stars", 
+        @"tried&refused", @"lynling", @"pop artist", @"lost panda", @"ignite", 
+        @"unique sound", @"cakes & eclairs", @"escape lyrics", @"musical muse", 
         @"theweekndvevo", @"high vibes", @"the vibe guide", @"latinnow", @"popular music", 
         @"the weeknd", @"light raider", @"mocha amv", @"tiff.", @"unclonable", 
-        @"sabrinacarpentervevo", @"ganda dhanda", @"dj fku", @"rxposo99 - topic", 
-        @"rival", @"chainsmokersvevo", @"the chainsmokers - topic", 
-        @"axwell λ ingrosso - topic", @"major lazer official", @"gen-z way", @"k-391", 
-        @"egzod", @"the chainsmokers", @"kurzgesagt – in a nutshell", @"reallifelore"
+        @"sabrinacarpentervevo", @"ganda dhanda", @"rxposo99", @"rival", 
+        @"chainsmokersvevo", @"the chainsmokers", @"axwell", @"major lazer", @"gen-z way", 
+        @"k-391", @"egzod", @"kurzgesagt", @"reallifelore"
     ];
 }
 
-// --- 2. THE UNIVERSAL VIDEO DESTROYER ---
-static void hideIfBlocked(UICollectionViewCell *cell) {
-    NSString *cellText = cell.accessibilityLabel.lowercaseString;
-    if (!cellText) return;
-    
-    NSArray *blocked = getBlockedKeywords();
-    for (NSString *keyword in blocked) {
-        if ([cellText containsString:keyword]) {
-            cell.hidden = YES;
-            CGRect newFrame = cell.frame;
-            newFrame.size.height = 0;
-            cell.frame = newFrame;
-            break;
+// --- 2. THE UNIVERSAL TEXT SCANNER ---
+static void executeBlock(UIView *cell) {
+    @try {
+        NSString *title = @"";
+        NSString *subtitle = @"";
+        
+        // Grab the raw text exactly when YouTube injects it into the labels
+        UILabel *tLabel = [cell valueForKey:@"_titleLabel"];
+        if (tLabel && [tLabel respondsToSelector:@selector(text)]) {
+            title = tLabel.text.lowercaseString ?: @"";
         }
-    }
+        
+        UILabel *sLabel = [cell valueForKey:@"_subtitleLabel"];
+        if (sLabel && [sLabel respondsToSelector:@selector(text)]) {
+            subtitle = sLabel.text.lowercaseString ?: @"";
+        }
+        
+        NSString *fullText = [NSString stringWithFormat:@"%@ %@", title, subtitle];
+        if (fullText.length < 2) return;
+        
+        NSArray *blocked = getBlockedKeywords();
+        for (NSString *keyword in blocked) {
+            if ([fullText containsString:keyword]) {
+                cell.hidden = YES;
+                cell.alpha = 0;
+                CGRect frame = cell.frame;
+                frame.size.height = 0;
+                cell.frame = frame; // Crush the box
+                break;
+            }
+        }
+    } @catch (NSException *e) {}
 }
 
-// --- 3. PERMANENTLY HIJACK YTLITE SETTINGS ---
-%hook NSUserDefaults
-- (BOOL)boolForKey:(NSString *)defaultName {
-    NSArray *forcedKeys = @[
-        @"shortsToRegular",       // Converts Shorts to regular player
-        @"endScreenCards",        // Hides End screen hover cards
-        @"noRelatedVids",         // No related videos in the overlay
-        @"noRelatedWatchNexts",   // Hides related videos under the main player
-        @"hideHomeTab",           // NUKES THE HOME FEED
-        @"hideShortsTab"          // NUKES THE SHORTS TAB
-    ];
-    
-    if ([forcedKeys containsObject:defaultName]) {
-        return YES; 
-    }
-    return %orig(defaultName);
-}
-%end
-
-// --- 4. APPLY BLOCKER TO ALL YOUTUBE SCREENS ---
+// --- 3. APPLY BLOCKER AT DATA INJECTION ---
+// Hooking both methods ensures we catch every version of YouTube's codebase
 %hook YTVideoCell
-- (void)layoutSubviews { 
-    %orig; 
-    hideIfBlocked(self); 
-}
+- (void)setModel:(id)arg1 { %orig; executeBlock(self); }
+- (void)setEntry:(id)arg1 { %orig; executeBlock(self); }
 %end
 
 %hook YTCompactVideoCell
-- (void)layoutSubviews { 
-    %orig; 
-    hideIfBlocked(self); 
-}
+- (void)setModel:(id)arg1 { %orig; executeBlock(self); }
+- (void)setEntry:(id)arg1 { %orig; executeBlock(self); }
 %end
 
 %hook YTSearchVideoCell
-- (void)layoutSubviews { 
-    %orig; 
-    hideIfBlocked(self); 
+- (void)setModel:(id)arg1 { %orig; executeBlock(self); }
+- (void)setEntry:(id)arg1 { %orig; executeBlock(self); }
+%end
+
+// --- 4. THE ULTIMATE SETTINGS INTERCEPTOR ---
+%hook NSUserDefaults
+// Catch Question 1 (Bools)
+- (BOOL)boolForKey:(NSString *)defaultName {
+    NSArray *forcedKeys = @[
+        @"shortsToRegular", @"endScreenCards", @"noRelatedVids", @"noRelatedWatchNexts", 
+        @"hideHomeTab", @"hideShortsTab", @"hideUploadTab"
+    ];
+    if ([forcedKeys containsObject:defaultName]) return YES;
+    return %orig;
+}
+
+// Catch Question 2 (Objects)
+- (id)objectForKey:(NSString *)defaultName {
+    NSArray *forcedKeys = @[
+        @"shortsToRegular", @"endScreenCards", @"noRelatedVids", @"noRelatedWatchNexts", 
+        @"hideHomeTab", @"hideShortsTab", @"hideUploadTab"
+    ];
+    if ([forcedKeys containsObject:defaultName]) return @YES;
+    return %orig;
 }
 %end
