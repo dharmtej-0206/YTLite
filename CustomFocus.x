@@ -7,6 +7,12 @@
 @interface YTCompactVideoCell : UIView
 @end
 
+@interface YTAppSettingsPresentationData : NSObject
+@end
+
+@interface YTSettingsSectionItemManager : NSObject
+@end
+
 @interface YTSettingsSectionItem : NSObject
 + (instancetype)switchItemWithTitle:(NSString *)title titleDescription:(NSString *)titleDescription accessibilityIdentifier:(NSString *)accessibilityIdentifier switchOn:(BOOL)switchOn switchBlock:(BOOL (^)(id cell, BOOL enabled))switchBlock settingItemId:(int)settingItemId;
 + (instancetype)itemWithTitle:(NSString *)title accessibilityIdentifier:(NSString *)accessibilityIdentifier detailTextBlock:(NSString *(^)(void))detailTextBlock selectBlock:(BOOL (^)(id cell, NSUInteger arg1))selectBlock;
@@ -72,7 +78,7 @@ static int remainingLockMinutes() {
 + (NSArray *)settingsCategoryOrder {
     NSArray *order = %orig;
     NSMutableArray *mutableOrder = [order mutableCopy];
-    NSUInteger insertIndex = [order indexOfObject:@(1)]; // 1 is usually the "General" tab
+    NSUInteger insertIndex = [order indexOfObject:@(1)]; 
     if (insertIndex != NSNotFound) {
         [mutableOrder insertObject:@(FocusSectionID) atIndex:insertIndex + 1];
     }
