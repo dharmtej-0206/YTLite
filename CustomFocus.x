@@ -6,14 +6,13 @@
 @end
 @interface YTSearchVideoCell : UICollectionViewCell
 @end
+@interface YTPivotBarItemView : UIView
+@end
 
 // --- 1. HARDCODED BLOCKLIST ---
 static NSArray *getBlockedKeywords() {
     return @[
-        // Keywords
         @"phonk", @"funk", @"slowed", @"music", @"sempero", @"teconci",
-        
-        // Channels (Cleaned up from your JSON)
         @"mrbeast", @"career247", @"studyiq ias", @"neon man", @"purav jha", 
         @"neon man sports", @"lakshay chaudhary", @"abhi and niyu", @"t-series", 
         @"neuzboy", @"ashish chanchlani vines", @"tanmay bhat", @"hindi rush", 
@@ -52,75 +51,109 @@ static NSArray *getBlockedKeywords() {
     ];
 }
 
-// --- 2. THE UNIVERSAL TEXT SCANNER ---
-static void executeBlock(UIView *cell) {
+// --- 2. THE NUCLEAR TEXT SCANNER ---
+// Recursively digs through EVERY single piece of text inside a UI box
+static NSString *getAllText(UIView *view) {
+    NSMutableString *text = [NSMutableString string];
     @try {
-        NSString *title = @"";
-        NSString *subtitle = @"";
-        
-        // Grab the raw text exactly when YouTube injects it into the labels
-        UILabel *tLabel = [cell valueForKey:@"_titleLabel"];
-        if (tLabel && [tLabel respondsToSelector:@selector(text)]) {
-            title = tLabel.text.lowercaseString ?: @"";
+        if ([view respondsToSelector:@selector(text)]) {
+            NSString *t = [view performSelector:@selector(text)];
+            if (t && [t isKindOfClass:[NSString class]]) [text appendFormat:@"%@ ", t];
         }
-        
-        UILabel *sLabel = [cell valueForKey:@"_subtitleLabel"];
-        if (sLabel && [sLabel respondsToSelector:@selector(text)]) {
-            subtitle = sLabel.text.lowercaseString ?: @"";
-        }
-        
-        NSString *fullText = [NSString stringWithFormat:@"%@ %@", title, subtitle];
-        if (fullText.length < 2) return;
-        
-        NSArray *blocked = getBlockedKeywords();
-        for (NSString *keyword in blocked) {
-            if ([fullText containsString:keyword]) {
-                cell.hidden = YES;
-                cell.alpha = 0;
-                CGRect frame = cell.frame;
-                frame.size.height = 0;
-                cell.frame = frame; // Crush the box
-                break;
-            }
+        if ([view respondsToSelector:@selector(accessibilityLabel)]) {
+            NSString *a = [view performSelector:@selector(accessibilityLabel)];
+            if (a && [a isKindOfClass:[NSString class]]) [text appendFormat:@"%@ ", a];
         }
     } @catch (NSException *e) {}
+    
+    for (UIView *subview in view.subviews) {
+        [text appendString:getAllText(subview)];
+    }
+    return text.lowercaseString;
 }
 
-// --- 3. APPLY BLOCKER AT DATA INJECTION ---
-// Hooking both methods ensures we catch every version of YouTube's codebase
-%hook YTVideoCell
-- (void)setModel:(id)arg1 { %orig; executeBlock(self); }
-- (void)setEntry:(id)arg1 { %orig; executeBlock(self); }
-%end
+static BOOL isBlocked(UIView *cell) {
+    NSString *fullText = getAllText(cell);
+    if (fullText.length < 2) return NO;
+    
+    for (NSString *keyword in getBlockedKeywords()) {
+        if ([fullText containsString:keyword]) return YES;
+    }
+    return NO;
+}
 
-%hook YTCompactVideoCell
-- (void)setModel:(id)arg1 { %orig; executeBlock(self); }
-- (void)setEntry:(id)arg1 { %orig; executeBlock(self); }
+// --- 3. THE GAPLESS BLOCKER ---
+%hook YTVideoCell
+- (void)layoutSubviews {
+    %orig;
+    if (isBlocked(self)) {
+        self.hidden = YES;
+        self.frame = CGRectZero;
+    }
+}
+- (CGSize)sizeThatFits:(CGSize)size {
+    if (isBlocked(self)) return CGSizeZero;
+    return %orig;
+}
 %end
 
 %hook YTSearchVideoCell
-- (void)setModel:(id)arg1 { %orig; executeBlock(self); }
-- (void)setEntry:(id)arg1 { %orig; executeBlock(self); }
+- (void)layoutSubviews {
+    %orig;
+    if (isBlocked(self)) {
+        self.hidden = YES;
+        self.frame = CGRectZero;
+    }
+}
+- (CGSize)sizeThatFits:(CGSize)size {
+    if (isBlocked(self)) return CGSizeZero;
+    return %orig;
+}
 %end
 
-// --- 4. THE ULTIMATE SETTINGS INTERCEPTOR ---
+// --- 4. NUKE RELATED VIDEOS (INFINITY SCROLL) ---
+// By returning CGSizeZero, the related feed is physically incapable of rendering
+%hook YTCompactVideoCell
+- (void)layoutSubviews {
+    %orig;
+    self.hidden = YES;
+    self.frame = CGRectZero;
+}
+- (CGSize)sizeThatFits:(CGSize)size {
+    return CGSizeZero;
+}
+%end
+
+// --- 5. NUKE THE BOTTOM TABS ---
+%hook YTPivotBarItemView
+- (void)layoutSubviews {
+    %orig;
+    NSString *text = getAllText(self);
+    // Erase Home, Shorts, and the (+) Upload button
+    if ([text containsString:@"home"] || [text containsString:@"shorts"] || [text containsString:@"create"] || [text containsString:@"+"]) {
+        self.hidden = YES;
+        self.userInteractionEnabled = NO;
+        self.frame = CGRectZero;
+    }
+}
+- (CGSize)sizeThatFits:(CGSize)size {
+    NSString *text = getAllText(self);
+    if ([text containsString:@"home"] || [text containsString:@"shorts"] || [text containsString:@"create"] || [text containsString:@"+"]) {
+        return CGSizeZero;
+    }
+    return %orig;
+}
+%end
+
+// --- 6. RETAIN PERSISTENCE (SHORTS-TO-REGULAR) ---
 %hook NSUserDefaults
-// Catch Question 1 (Bools)
 - (BOOL)boolForKey:(NSString *)defaultName {
-    NSArray *forcedKeys = @[
-        @"shortsToRegular", @"endScreenCards", @"noRelatedVids", @"noRelatedWatchNexts", 
-        @"hideHomeTab", @"hideShortsTab", @"hideUploadTab"
-    ];
+    NSArray *forcedKeys = @[@"shortsToRegular", @"endScreenCards"];
     if ([forcedKeys containsObject:defaultName]) return YES;
     return %orig;
 }
-
-// Catch Question 2 (Objects)
 - (id)objectForKey:(NSString *)defaultName {
-    NSArray *forcedKeys = @[
-        @"shortsToRegular", @"endScreenCards", @"noRelatedVids", @"noRelatedWatchNexts", 
-        @"hideHomeTab", @"hideShortsTab", @"hideUploadTab"
-    ];
+    NSArray *forcedKeys = @[@"shortsToRegular", @"endScreenCards"];
     if ([forcedKeys containsObject:defaultName]) return @YES;
     return %orig;
 }
