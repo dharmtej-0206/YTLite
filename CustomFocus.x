@@ -1,15 +1,141 @@
-#import "YTLite.h"
 #import <UIKit/UIKit.h>
 
-// --- TELL THE COMPILER WHAT THIS CLASS IS ---
-// (YTAppViewController is already defined in YTLite.h, so we only need this one)
+// --- INTERFACES ---
+@interface YTAppViewController : UIViewController
+@end
+
 @interface YTCompactVideoCell : UIView
 @end
-// --------------------------------------------
 
+@interface YTSettingsSectionItem : NSObject
++ (instancetype)switchItemWithTitle:(NSString *)title titleDescription:(NSString *)titleDescription accessibilityIdentifier:(NSString *)accessibilityIdentifier switchOn:(BOOL)switchOn switchBlock:(BOOL (^)(id cell, BOOL enabled))switchBlock settingItemId:(int)settingItemId;
++ (instancetype)itemWithTitle:(NSString *)title accessibilityIdentifier:(NSString *)accessibilityIdentifier detailTextBlock:(NSString *(^)(void))detailTextBlock selectBlock:(BOOL (^)(id cell, NSUInteger arg1))selectBlock;
+@end
+
+@interface YTAlertView : UIView
++ (instancetype)confirmationDialogWithAction:(void (^)(void))action actionTitle:(NSString *)actionTitle cancelTitle:(NSString *)cancelTitle;
++ (instancetype)infoDialog;
+@property (nonatomic, copy) NSString *title;
+@property (nonatomic, copy) NSString *subtitle;
+- (void)show;
+@end
+
+@interface YTSettingsPickerViewController : UIViewController
+- (instancetype)initWithNavTitle:(NSString *)navTitle pickerSectionTitle:(NSString *)pickerSectionTitle rows:(NSArray *)rows selectedItemIndex:(NSUInteger)selectedItemIndex parentResponder:(id)parentResponder;
+@end
+
+@interface YTSettingsViewController : UIViewController
+- (void)pushViewController:(UIViewController *)viewController;
+- (void)setSectionItems:(NSMutableArray *)sectionItems forCategory:(NSUInteger)category title:(NSString *)title titleDescription:(NSString *)titleDescription headerHidden:(BOOL)headerHidden;
+@end
+
+// --- GLOBAL VARIABLES ---
+static const NSInteger FocusSectionID = 888;
 static NSMutableArray *blockedItems = nil;
 
-// --- 1. READ & DECODE THE .YTB FILE ---
+// Helper function to read toggles
+static BOOL focusBool(NSString *key) {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:key];
+}
+
+// Helper functions for the Lock
+static BOOL isSettingsLocked() {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSDate *lockDate = [defaults objectForKey:@"focus_lock_timestamp"];
+    NSNumber *durationNum = [defaults objectForKey:@"focus_lock_duration_seconds"]; 
+    
+    if (lockDate && durationNum && [durationNum doubleValue] > 0) {
+        NSTimeInterval timePassed = [[NSDate date] timeIntervalSinceDate:lockDate];
+        if (timePassed < [durationNum doubleValue]) {
+            return YES;
+        } else {
+            [defaults removeObjectForKey:@"focus_lock_timestamp"];
+            [defaults removeObjectForKey:@"focus_lock_duration_seconds"];
+            [defaults synchronize];
+            return NO;
+        }
+    }
+    return NO;
+}
+
+static int remainingLockMinutes() {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSDate *lockDate = [defaults objectForKey:@"focus_lock_timestamp"];
+    NSNumber *durationNum = [defaults objectForKey:@"focus_lock_duration_seconds"];
+    NSTimeInterval timePassed = [[NSDate date] timeIntervalSinceDate:lockDate];
+    return (int)(([durationNum doubleValue] - timePassed) / 60);
+}
+
+
+// --- 1. SETTINGS MENU INJECTION ---
+%hook YTAppSettingsPresentationData
++ (NSArray *)settingsCategoryOrder {
+    NSArray *order = %orig;
+    NSMutableArray *mutableOrder = [order mutableCopy];
+    NSUInteger insertIndex = [order indexOfObject:@(1)]; // 1 is usually the "General" tab
+    if (insertIndex != NSNotFound) {
+        [mutableOrder insertObject:@(FocusSectionID) atIndex:insertIndex + 1];
+    }
+    return mutableOrder;
+}
+%end
+
+%hook YTSettingsSectionItemManager
+- (void)updateSectionForCategory:(NSUInteger)category withEntry:(id)entry {
+    if (category == FocusSectionID) {
+        NSMutableArray *sectionItems = [NSMutableArray array];
+        Class YTSettingsSectionItemClass = %c(YTSettingsSectionItem);
+        YTSettingsViewController *settingsViewController = [self valueForKey:@"_settingsViewControllerDelegate"];
+
+        // Toggle 1: Custom Blocks
+        YTSettingsSectionItem *blockToggle = [YTSettingsSectionItemClass switchItemWithTitle:@"Enable Custom Blocks (.ytb)" titleDescription:@"Hides specified channels/titles" accessibilityIdentifier:@"FocusSectionItem" switchOn:focusBool(@"enableCustomFocusBlocker") switchBlock:^BOOL(id cell, BOOL enabled) {
+            [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"enableCustomFocusBlocker"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+            return YES;
+        } settingItemId:0];
+        [sectionItems addObject:blockToggle];
+
+        // Toggle 2: App Delay
+        YTSettingsSectionItem *delayToggle = [YTSettingsSectionItemClass switchItemWithTitle:@"Enable 10-Second Delay" titleDescription:@"Forces a delay on startup" accessibilityIdentifier:@"FocusSectionItem" switchOn:focusBool(@"enableAppDelay") switchBlock:^BOOL(id cell, BOOL enabled) {
+            [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"enableAppDelay"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+            return YES;
+        } settingItemId:0];
+        [sectionItems addObject:delayToggle];
+
+        // Button: 1 Hour Lock
+        YTSettingsSectionItem *lock1 = [YTSettingsSectionItemClass itemWithTitle:@"Lock Settings (1 Hour)" accessibilityIdentifier:@"FocusSectionItem" detailTextBlock:nil selectBlock:^BOOL (id cell, NSUInteger arg1) {
+            if (isSettingsLocked()) {
+                YTAlertView *alert = [%c(YTAlertView) infoDialog];
+                alert.title = @"Locked";
+                alert.subtitle = [NSString stringWithFormat:@"Time remaining: %d minutes", remainingLockMinutes()];
+                [alert show];
+                return NO;
+            }
+            YTAlertView *alertView = [%c(YTAlertView) confirmationDialogWithAction:^{
+                NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+                [defaults setObject:[NSDate date] forKey:@"focus_lock_timestamp"];
+                [defaults setObject:@(3600) forKey:@"focus_lock_duration_seconds"]; 
+                [defaults synchronize];
+                [[UIApplication sharedApplication] performSelector:@selector(suspend)];
+                [NSThread sleepForTimeInterval:1.0];
+                exit(0); 
+            } actionTitle:@"Lock Now" cancelTitle:@"Cancel"];
+            alertView.title = @"Are you sure?";
+            alertView.subtitle = @"You cannot change Focus settings for 1 hour.";
+            [alertView show];
+            return YES;
+        }];
+        [sectionItems addObject:lock1];
+
+        [settingsViewController setSectionItems:sectionItems forCategory:FocusSectionID title:@"Focus Mode" titleDescription:@"Custom Distraction Blocker" headerHidden:NO];
+        return;
+    }
+    %orig;
+}
+%end
+
+// --- 2. THE FOCUS LOGIC (BLOCKER & DELAY) ---
 %ctor {
     blockedItems = [[NSMutableArray alloc] init];
     NSString *bundlePath = [[[NSBundle mainBundle] bundlePath] stringByAppendingPathComponent:@"YTLite.bundle"];
@@ -33,13 +159,10 @@ static NSMutableArray *blockedItems = nil;
     }
 }
 
-// --- 2. 10-SECOND APP DELAY ---
 %hook YTAppViewController
 - (void)viewDidLoad {
     %orig;
-    
-    // Check if the user turned on the Delay toggle in the Focus Settings
-    if (!ytlBool(@"enableAppDelay")) return;
+    if (!focusBool(@"enableAppDelay")) return;
 
     UIView *blockView = [[UIView alloc] initWithFrame:[UIScreen mainScreen].bounds];
     blockView.backgroundColor = [UIColor blackColor];
@@ -63,13 +186,10 @@ static NSMutableArray *blockedItems = nil;
 }
 %end
 
-// --- 3. CHANNEL / TITLE BLOCKER ---
 %hook YTCompactVideoCell
 - (void)setModel:(id)model {
     %orig;
-    
-    // Check if the user turned on the Custom Blocker toggle in the Focus Settings
-    if (!ytlBool(@"enableCustomFocusBlocker")) return;
+    if (!focusBool(@"enableCustomFocusBlocker")) return;
     if (!blockedItems || blockedItems.count == 0) return;
     
     @try {
