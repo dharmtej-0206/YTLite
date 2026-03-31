@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 
 @interface YTVideoCell : UICollectionViewCell
 @end
@@ -9,7 +10,7 @@
 @interface YTPivotBarItemView : UIView
 @end
 
-// --- 1. HARDCODED BLOCKLIST ---
+// --- 1. THE FIRMWARE BLOCKLIST ---
 static NSArray *getBlockedKeywords() {
     return @[
         @"phonk", @"funk", @"slowed", @"music", @"sempero", @"teconci",
@@ -51,110 +52,93 @@ static NSArray *getBlockedKeywords() {
     ];
 }
 
-// --- 2. THE NUCLEAR TEXT SCANNER ---
-// Recursively digs through EVERY single piece of text inside a UI box
-static NSString *getAllText(UIView *view) {
-    NSMutableString *text = [NSMutableString string];
-    @try {
-        if ([view respondsToSelector:@selector(text)]) {
-            NSString *t = [view performSelector:@selector(text)];
-            if (t && [t isKindOfClass:[NSString class]]) [text appendFormat:@"%@ ", t];
-        }
-        if ([view respondsToSelector:@selector(accessibilityLabel)]) {
-            NSString *a = [view performSelector:@selector(accessibilityLabel)];
-            if (a && [a isKindOfClass:[NSString class]]) [text appendFormat:@"%@ ", a];
-        }
-    } @catch (NSException *e) {}
-    
-    for (UIView *subview in view.subviews) {
-        [text appendString:getAllText(subview)];
-    }
-    return text.lowercaseString;
-}
+// --- 2. THE DATA MODEL HIJACKER ---
+// We create a secret tag to remember if a cell is blocked
+static const void *kIsBlockedKey = &kIsBlockedKey;
 
-static BOOL isBlocked(UIView *cell) {
-    NSString *fullText = getAllText(cell);
-    if (fullText.length < 2) return NO;
+static BOOL isDataBlocked(id dataModel) {
+    if (!dataModel) return NO;
+    // This intercepts the raw data (JSON/Protobuf) before YouTube even draws the box.
+    // It sees EVERYTHING instantly.
+    NSString *rawText = [[dataModel description] lowercaseString];
+    if (rawText.length < 2) return NO;
     
     for (NSString *keyword in getBlockedKeywords()) {
-        if ([fullText containsString:keyword]) return YES;
+        if ([rawText containsString:keyword]) return YES;
     }
     return NO;
 }
 
-// --- 3. THE GAPLESS BLOCKER ---
-%hook YTVideoCell
-- (void)layoutSubviews {
-    %orig;
-    if (isBlocked(self)) {
-        self.hidden = YES;
-        self.frame = CGRectZero;
-    }
+static void markCell(UIView *cell, BOOL isBlocked) {
+    objc_setAssociatedObject(cell, kIsBlockedKey, @(isBlocked), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (isBlocked) cell.hidden = YES;
+    else cell.hidden = NO;
 }
+
+static BOOL isCellBlocked(UIView *cell) {
+    NSNumber *val = objc_getAssociatedObject(cell, kIsBlockedKey);
+    return [val boolValue];
+}
+
+// --- 3. APPLY TO HOME & SEARCH ---
+%hook YTVideoCell
+- (void)setEntry:(id)arg1 { %orig; markCell(self, isDataBlocked(arg1)); }
+- (void)setModel:(id)arg1 { %orig; markCell(self, isDataBlocked(arg1)); }
 - (CGSize)sizeThatFits:(CGSize)size {
-    if (isBlocked(self)) return CGSizeZero;
+    if (isCellBlocked(self)) return CGSizeZero;
     return %orig;
 }
 %end
 
 %hook YTSearchVideoCell
-- (void)layoutSubviews {
-    %orig;
-    if (isBlocked(self)) {
-        self.hidden = YES;
-        self.frame = CGRectZero;
-    }
-}
+- (void)setEntry:(id)arg1 { %orig; markCell(self, isDataBlocked(arg1)); }
+- (void)setModel:(id)arg1 { %orig; markCell(self, isDataBlocked(arg1)); }
 - (CGSize)sizeThatFits:(CGSize)size {
-    if (isBlocked(self)) return CGSizeZero;
+    if (isCellBlocked(self)) return CGSizeZero;
     return %orig;
 }
 %end
 
-// --- 4. NUKE RELATED VIDEOS (INFINITY SCROLL) ---
-// By returning CGSizeZero, the related feed is physically incapable of rendering
+// --- 4. ANNIHILATE INFINITE SCROLL & RELATED VIDEOS ---
+// We permanently force every related video cell to be blocked and height 0.
 %hook YTCompactVideoCell
-- (void)layoutSubviews {
-    %orig;
-    self.hidden = YES;
-    self.frame = CGRectZero;
-}
-- (CGSize)sizeThatFits:(CGSize)size {
-    return CGSizeZero;
-}
+- (void)setEntry:(id)arg1 { %orig; markCell(self, YES); }
+- (void)setModel:(id)arg1 { %orig; markCell(self, YES); }
+- (CGSize)sizeThatFits:(CGSize)size { return CGSizeZero; }
 %end
 
-// --- 5. NUKE THE BOTTOM TABS ---
+// --- 5. BOTTOM TABS & APP STARTUP ---
 %hook YTPivotBarItemView
-- (void)layoutSubviews {
-    %orig;
-    NSString *text = getAllText(self);
-    // Erase Home, Shorts, and the (+) Upload button
-    if ([text containsString:@"home"] || [text containsString:@"shorts"] || [text containsString:@"create"] || [text containsString:@"+"]) {
-        self.hidden = YES;
-        self.userInteractionEnabled = NO;
-        self.frame = CGRectZero;
-    }
-}
 - (CGSize)sizeThatFits:(CGSize)size {
-    NSString *text = getAllText(self);
-    if ([text containsString:@"home"] || [text containsString:@"shorts"] || [text containsString:@"create"] || [text containsString:@"+"]) {
+    NSString *aLabel = [self.accessibilityLabel lowercaseString] ?: @"";
+    if ([aLabel containsString:@"home"] || [aLabel containsString:@"shorts"] || [aLabel containsString:@"create"]) {
         return CGSizeZero;
     }
     return %orig;
 }
+- (void)layoutSubviews {
+    %orig;
+    NSString *aLabel = [self.accessibilityLabel lowercaseString] ?: @"";
+    if ([aLabel containsString:@"home"] || [aLabel containsString:@"shorts"] || [aLabel containsString:@"create"]) {
+        self.hidden = YES;
+    }
+}
 %end
 
-// --- 6. RETAIN PERSISTENCE (SHORTS-TO-REGULAR) ---
 %hook NSUserDefaults
 - (BOOL)boolForKey:(NSString *)defaultName {
-    NSArray *forcedKeys = @[@"shortsToRegular", @"endScreenCards"];
+    NSArray *forcedKeys = @[@"shortsToRegular", @"endScreenCards", @"noRelatedVids", @"noRelatedWatchNexts", @"hideHomeTab", @"hideShortsTab", @"hideUploadTab"];
     if ([forcedKeys containsObject:defaultName]) return YES;
     return %orig;
 }
 - (id)objectForKey:(NSString *)defaultName {
-    NSArray *forcedKeys = @[@"shortsToRegular", @"endScreenCards"];
+    NSArray *forcedKeys = @[@"shortsToRegular", @"endScreenCards", @"noRelatedVids", @"noRelatedWatchNexts", @"hideHomeTab", @"hideShortsTab", @"hideUploadTab"];
     if ([forcedKeys containsObject:defaultName]) return @YES;
+    return %orig;
+}
+// Force the app to launch into the Subscriptions tab instead of Home
+- (NSInteger)integerForKey:(NSString *)defaultName {
+    if ([defaultName isEqualToString:@"startupPage"]) return 3; // 3 = Subscriptions Tab
     return %orig;
 }
 %end
