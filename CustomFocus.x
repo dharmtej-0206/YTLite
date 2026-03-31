@@ -1,5 +1,9 @@
 #import <UIKit/UIKit.h>
 
+// --- THE MISSING NAMETAG ---
+@interface YTPivotBarItemView : UIView
+@end
+
 // --- 1. YOUR FULL BLOCKLIST ---
 static NSArray *getBlockedKeywords() {
     return @[
