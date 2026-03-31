@@ -1,16 +1,18 @@
 #import <UIKit/UIKit.h>
 
-// --- THE MISSING NAMETAG ---
+@interface YTVideoCell : UICollectionViewCell
+@end
+@interface YTCompactVideoCell : UICollectionViewCell
+@end
+@interface YTSearchVideoCell : UICollectionViewCell
+@end
 @interface YTPivotBarItemView : UIView
 @end
 
 // --- 1. YOUR FULL BLOCKLIST ---
 static NSArray *getBlockedKeywords() {
     return @[
-        // Keywords & Titles
         @"phonk", @"funk", @"slowed", @"music", @"sempero", @"teconci",
-        
-        // Blocked Channels
         @"mrbeast", @"career247", @"studyiq ias", @"neon man", @"purav jha", 
         @"neon man sports", @"lakshay chaudhary", @"abhi and niyu", @"t-series", 
         @"neuzboy", @"ashish chanchlani vines", @"tanmay bhat", @"hindi rush", 
@@ -56,52 +58,126 @@ static NSArray *getBlockedKeywords() {
     ];
 }
 
-// --- 2. THE GLOBAL TEXT TRIPWIRE ---
-// This intercepts EVERY single piece of text drawn on the screen
-%hook UILabel
-- (void)setText:(NSString *)text {
-    %orig;
-    if (!text || text.length < 2) return;
-    
-    NSString *lowerText = text.lowercaseString;
-    for (NSString *keyword in getBlockedKeywords()) {
-        if ([lowerText containsString:keyword]) {
-            // A blocked word was found! Climb up the UI tree and destroy the parent container.
-            UIView *currentView = self;
-            while (currentView != nil) {
-                // If we hit a cell container, nuke it
-                if ([currentView isKindOfClass:NSClassFromString(@"UICollectionViewCell")]) {
-                    currentView.hidden = YES;
-                    currentView.alpha = 0;
-                    currentView.frame = CGRectZero;
-                    break;
-                }
-                currentView = currentView.superview;
-            }
-            break;
+// --- 2. RECURSIVE TEXT SCANNER ---
+static NSString *getAllText(UIView *view) {
+    NSMutableString *text = [NSMutableString string];
+    @try {
+        if ([view respondsToSelector:@selector(text)]) {
+            NSString *t = [view performSelector:@selector(text)];
+            if (t && [t isKindOfClass:[NSString class]]) [text appendFormat:@"%@ ", t];
         }
+        if ([view respondsToSelector:@selector(accessibilityLabel)]) {
+            NSString *a = [view performSelector:@selector(accessibilityLabel)];
+            if (a && [a isKindOfClass:[NSString class]]) [text appendFormat:@"%@ ", a];
+        }
+    } @catch (NSException *e) {}
+    
+    for (UIView *subview in view.subviews) {
+        [text appendString:getAllText(subview)];
+    }
+    return text.lowercaseString;
+}
+
+static BOOL isCellBlocked(UIView *cell) {
+    NSString *fullText = getAllText(cell);
+    if (fullText.length < 2) return NO;
+    for (NSString *keyword in getBlockedKeywords()) {
+        if ([fullText containsString:keyword]) return YES;
+    }
+    return NO;
+}
+
+// --- 3. DEFEAT YTLITE: THE VISIBILITY LOCKOUT ---
+// By hooking setHidden: and setFrame:, we literally reject YTLite's commands to show the video
+%hook YTVideoCell
+- (void)setHidden:(BOOL)hidden {
+    if (!hidden && isCellBlocked(self)) {
+        %orig(YES); // YTLite tried to unhide it. We force it to stay hidden.
+    } else {
+        %orig(hidden);
+    }
+}
+- (void)setFrame:(CGRect)frame {
+    if (isCellBlocked(self)) {
+        %orig(CGRectZero); // Force 0 pixels
+    } else {
+        %orig(frame);
+    }
+}
+- (void)layoutSubviews {
+    %orig;
+    if (isCellBlocked(self)) {
+        self.hidden = YES;
+        self.frame = CGRectZero;
     }
 }
 %end
 
-// --- 3. THE TAB BAR NUKE ---
+%hook YTCompactVideoCell
+- (void)setHidden:(BOOL)hidden {
+    if (!hidden && isCellBlocked(self)) {
+        %orig(YES); 
+    } else {
+        %orig(hidden);
+    }
+}
+- (void)setFrame:(CGRect)frame {
+    if (isCellBlocked(self)) {
+        %orig(CGRectZero); 
+    } else {
+        %orig(frame);
+    }
+}
+- (void)layoutSubviews {
+    %orig;
+    if (isCellBlocked(self)) {
+        self.hidden = YES;
+        self.frame = CGRectZero;
+    }
+}
+%end
+
+%hook YTSearchVideoCell
+- (void)setHidden:(BOOL)hidden {
+    if (!hidden && isCellBlocked(self)) {
+        %orig(YES); 
+    } else {
+        %orig(hidden);
+    }
+}
+- (void)setFrame:(CGRect)frame {
+    if (isCellBlocked(self)) {
+        %orig(CGRectZero); 
+    } else {
+        %orig(frame);
+    }
+}
+- (void)layoutSubviews {
+    %orig;
+    if (isCellBlocked(self)) {
+        self.hidden = YES;
+        self.frame = CGRectZero;
+    }
+}
+%end
+
+// --- 4. THE TAB BAR NUKE (Keep this since it worked!) ---
 %hook YTPivotBarItemView
 - (void)layoutSubviews {
     %orig;
     @try {
-        // Scan the accessibility labels of the bottom tabs
         NSString *label = self.accessibilityLabel.lowercaseString ?: @"";
         if ([label containsString:@"home"] || [label containsString:@"shorts"] || [label containsString:@"create"] || [label containsString:@"+"]) {
             self.hidden = YES;
             self.userInteractionEnabled = NO;
             self.frame = CGRectZero;
-            [self removeFromSuperview]; // Physically rip it out of the bar
+            [self removeFromSuperview]; 
         }
     } @catch (NSException *e) {}
 }
 %end
 
-// --- 4. PERSISTENCE OVERRIDES ---
+// --- 5. PERSISTENCE OVERRIDES ---
 %hook NSUserDefaults
 - (BOOL)boolForKey:(NSString *)defaultName {
     NSArray *forcedKeys = @[@"shortsToRegular", @"endScreenCards", @"noRelatedVids", @"noRelatedWatchNexts"];
@@ -113,7 +189,6 @@ static NSArray *getBlockedKeywords() {
     if ([forcedKeys containsObject:defaultName]) return @YES;
     return %orig;
 }
-// Force boot into Subscriptions (Index 3)
 - (NSInteger)integerForKey:(NSString *)defaultName {
     if ([defaultName isEqualToString:@"startupPage"]) return 3; 
     return %orig;
